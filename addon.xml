@@ -2,7 +2,7 @@
 <addon id="service.subtitles.opensubtitles-com"
        name="OpenSubtitles.com"
        version="1.0.0"
-       provider-name="amet, opensubtitles, juokelis">
+       provider-name="amet, opensubtitles, juokelis, opensubtitlesdev">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0"/>
 		<import addon="script.module.requests" version="2.25.1+matrix.1"/>
@@ -50,7 +50,7 @@
 		<description lang="tr_TR">Her gün eklenen, pek çok dildeki binlerce film ve dizi altyazısı. Kaynağından ücretsiz indirme, API desteği ve milyonlarca kullanıcı.</description>
 		<description lang="uz_UZ">Film va TV Taglavhalari ko'p tillarda, minglab tarjima qilingan taglavhalar har kuni tizimga yuklanadi. Bepul resursdan yuklab oling, API qo'llaydi, millionlab foydalanuvchilar.</description>
 		<description lang="zh_CN">多语种的电影及剧集字幕，每日更新千余条翻译好的字幕。免费下载，提供API接口，已拥有上百万的用户。</description>
-		<disclaimer lang="en_GB">Users need to provide OpenSubtitles.com username and password in add-on configuration</disclaimer>
+		<disclaimer lang="en_GB">Users need to provide OpenSubtitles.com username and password in add-on configuration. This is our new extension, old opensubtitles.org will not work on this, but the account can be easily imported on opensubtitles.com.</disclaimer>
 		<news>
 v1.0.0 (2022-05-09) by opensubtitles
 - Moving to OpenSubtitles.com REST API.
