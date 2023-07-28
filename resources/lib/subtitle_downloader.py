@@ -10,7 +10,7 @@ import xbmcplugin
 import xbmcvfs
 
 from resources.lib.data_collector import get_language_data, get_media_data, get_file_path, convert_language, \
-    clean_feature_release_name
+    clean_feature_release_name, get_flag
 from resources.lib.exceptions import AuthenticationError, ConfigurationError, DownloadLimitExceeded, ProviderError, \
     ServiceUnavailable, TooManyRequests
 from resources.lib.file_operations import get_file_data
@@ -142,7 +142,7 @@ class SubtitleDownloader:
                                          label2=clean_name)
             list_item.setArt({
                 "icon": str(int(round(float(attributes["ratings"]) / 2))),
-                "thumb": attributes["language"]})
+                "thumb": get_flag(attributes["language"])})
             list_item.setProperty("sync", "true" if ("moviehash_match" in attributes and attributes["moviehash_match"]) else "false")
             list_item.setProperty("hearing_imp", "true" if attributes["hearing_impaired"] else "false")
             """TODO take care of multiple cds id&id or something"""
