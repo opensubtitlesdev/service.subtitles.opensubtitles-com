@@ -132,6 +132,125 @@ class SubtitleDownloader:
 
     def list_subtitles(self):
         """TODO rewrite using new data. do not forget Series/Episodes"""
+        from difflib import SequenceMatcher
+
+        release_groups = [
+            ['bluray', 'bd', 'bdrip', 'brrip', 'bdmv', 'bdscr', 'remux', 'bdremux', 'uhdremux', 'uhdbdremux', 'uhdbluray'],
+            ['web', 'webdl', 'webrip', 'webr', 'webdlrip', 'webcap'],
+            ['dvd', 'dvd5', 'dvd9', 'dvdr', 'dvdrip', 'dvdscr'],
+            ['scr', 'screener', 'r5', 'r6']
+        ]
+        release = []
+        for group in release_groups:
+            release.extend(group)
+        release.extend(['avi', 'mp4', 'mkv', 'ts', 'm2ts', 'mts', 'mpeg', 'mpg', 'mov', 'wmv', 'flv', 'vob'])
+
+        quality_groups = [
+            ['4k', '2160p', '2160', '4kuhd', '4kultrahd', 'ultrahd', 'uhd'],
+            ['1080p', '1080'],
+            ['720p', '720'],
+            ['480p'],
+            ['360p', '240p', '144p'],
+        ]
+        quality = []
+        for group in quality_groups:
+            quality.extend(group)
+
+        service_groups = [
+            ['netflix', 'nflx', 'nf'],
+            ['amazon', 'amzn', 'primevideo'],
+            ['hulu', 'hlu'],
+            ['crunchyroll', 'cr'],
+            ['disney', 'disneyplus'],
+            ['hbo', 'hbonow', 'hbogo', 'hbomax', 'hmax'],
+            ['bbc'],
+            ['sky', 'skyq'],
+            ['syfy'],
+            ['atvp', 'atvplus'],
+            ['pcok', 'peacock'],
+        ]
+        service = []
+        for group in service_groups:
+            service.extend(group)
+
+        codec_groups = [
+            ['x264', 'h264', '264', 'avc'],
+            ['x265', 'h265', '265', 'hevc'],
+            ['av1', 'vp9', 'vp8', 'divx', 'xvid'],
+        ]
+        codec = []
+        for group in codec_groups:
+            codec.extend(group)
+
+        audio_groups = [
+            ['dts', 'dtshd', 'atmos', 'truehd'],
+            ['aac', 'ac'],
+            ['dd', 'ddp', 'ddp5', 'dd5', 'dd2', 'dd1', 'dd7', 'ddp7'],
+        ]
+        audio = []
+        for group in audio_groups:
+            audio.extend(group)
+
+        color_groups = [
+            ['hdr', '10bit', '12bit', 'hdr10', 'hdr10plus', 'dolbyvision', 'dolby', 'vision'],
+            ['sdr', '8bit'],
+        ]
+        color = []
+        for group in color_groups:
+            color.extend(group)
+
+        extra = ['extended', 'cut', 'remastered', 'proper']
+        video_info = xbmc.Player().getPlayingFile()
+        filename = (video_info).lower()
+        regexsplitwords = r'[\s\.\:\;\(\)\[\]\{\}\\\/\&\€\'\`\#\@\=\$\?\!\%\+\-\_\*\^]'
+        nameparts = re.split(regexsplitwords, filename)
+
+        release_list = [i for i in nameparts if i in release]
+        quality_list = [i for i in nameparts if i in quality]
+        service_list = [i for i in nameparts if i in service]
+        codec_list = [i for i in nameparts if i in codec]
+        audio_list = [i for i in nameparts if i in audio]
+        color_list = [i for i in nameparts if i in color]
+        extra_list = [i for i in nameparts if i in extra]
+
+        for item in release_list:
+            for group in release_groups:
+                if item in group:
+                    release_list = group
+                    break
+
+        for item in quality_list:
+            for group in quality_groups:
+                if item in group:
+                    quality_list = group
+                    break
+
+        for item in service_list:
+            for group in service_groups:
+                if item in group:
+                    service_list = group
+                    break
+
+        for item in codec_list:
+            for group in codec_groups:
+                if item in group:
+                    codec_list = group
+                    break
+
+        for item in audio_list:
+            for group in audio_groups:
+                if item in group:
+                    audio_list = group
+                    break
+
+        for item in color_list:
+            for group in color_groups:
+                if item in group:
+                    color_list = group
+                    break
+
+        sorted_subtitles = []
+
         for subtitle in self.subtitles:
             attributes = subtitle["attributes"]
             language = convert_language(attributes["language"], True)
@@ -140,6 +259,18 @@ class SubtitleDownloader:
                                                     attributes["feature_details"]["movie_name"])
             list_item = xbmcgui.ListItem(label=language,
                                          label2=clean_name)
+
+            sorter = lambda x: (
+                -sum(word in attributes["release"].lower() for word in release_list)*10,
+                -sum(word in attributes["release"].lower() for word in service_list)*10,
+                -sum(word in attributes["release"].lower() for word in quality_list)*5,
+                -sum(word in attributes["release"].lower() for word in audio_list)*2,
+                -sum(word in attributes["release"].lower() for word in codec_list)*2,
+                -sum(word in attributes["release"].lower() for word in extra_list)*2,
+                -sum(word in attributes["release"].lower() for word in color_list)*2,
+                -SequenceMatcher(None, attributes["release"].lower(),(filename).lower()).ratio(),
+                )
+
             list_item.setArt({
                 "icon": str(int(round(float(attributes["ratings"]) / 2))),
                 "thumb": get_flag(attributes["language"])})
@@ -147,6 +278,13 @@ class SubtitleDownloader:
             list_item.setProperty("hearing_imp", "true" if attributes["hearing_impaired"] else "false")
             """TODO take care of multiple cds id&id or something"""
             url = f"plugin://{__scriptid__}/?action=download&id={attributes['files'][0]['file_id']}"
+            sorted_subtitles.append((list_item, sorter(list_item)))
 
-            xbmcplugin.addDirectoryItem(handle=self.handle, url=url, listitem=list_item, isFolder=False)
+    # Sort the list of subtitles based on the sorting key
+        sorted_subtitles.sort(key=lambda item: item[1])
+
+    # Add sorted subtitles to the directory
+        for sorted_item, _ in sorted_subtitles:
+            xbmcplugin.addDirectoryItem(handle=self.handle, url=sorted_item.getProperty("url"), listitem=sorted_item, isFolder=False)
+
         xbmcplugin.endOfDirectory(self.handle)
