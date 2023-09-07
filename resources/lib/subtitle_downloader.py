@@ -9,6 +9,9 @@ import xbmcgui
 import xbmcplugin
 import xbmcvfs
 
+import xbmc
+import re
+
 from resources.lib.data_collector import get_language_data, get_media_data, get_file_path, convert_language, \
     clean_feature_release_name, get_flag
 from resources.lib.exceptions import AuthenticationError, ConfigurationError, DownloadLimitExceeded, ProviderError, \
