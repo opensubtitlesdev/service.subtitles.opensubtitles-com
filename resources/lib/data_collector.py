@@ -58,16 +58,12 @@ def get_media_data():
 
 def get_language_data(params):
     search_languages = unquote(params.get("languages")).split(",")
-    search_languages_str = ""
     preferred_language = params.get("preferredlanguage")
 
     # fallback_language = __addon__.getSetting("fallback_language")
 
-
-
     if preferred_language and preferred_language not in search_languages and preferred_language != "Unknown"  and preferred_language != "Undetermined": 
         search_languages.append(preferred_language)
-        search_languages_str=search_languages_str+","+preferred_language
 
     """ should implement properly as fallback, not additional language, leave it for now
     """
@@ -76,15 +72,12 @@ def get_language_data(params):
     #    search_languages_str=search_languages_str+","+fallback_language
 
         #search_languages_str=fallback_language
-        
+
+    sanitized_languages = []
     for language in search_languages:
         lang = convert_language(language)
         if lang:
-            log(__name__, f"Language  found: '{lang}' search_languages_str:'{search_languages_str}")
-            if search_languages_str=="":
-                search_languages_str=lang    
-            else:
-                search_languages_str=search_languages_str+","+lang
+            sanitized_languages.append(lang)
         #item["languages"].append(lang)
             #if search_languages_str=="":
             #    search_languages_str=lang                            
@@ -95,15 +88,14 @@ def get_language_data(params):
         else:
             log(__name__, f"Language code not found: '{language}'")
 
+    if sanitized_languages:
+        search_languages_str = ",".join(sorted(sanitized_languages))
+    else:
+        # fallback if sanitization failed
+        search_languages_str = ",".join(sorted(search_languages))
 
+    log(__name__, f"Languages found: '{lang}' search_languages_str:'{search_languages_str}'")
 
-
-
-
-
-
-
-    
     item = {
         "hearing_impaired": __addon__.getSetting("hearing_impaired"),
         "foreign_parts_only": __addon__.getSetting("foreign_parts_only"),
