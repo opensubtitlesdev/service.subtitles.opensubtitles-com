@@ -132,7 +132,11 @@ class SubtitleDownloader:
 
     def list_subtitles(self):
         """TODO rewrite using new data. do not forget Series/Episodes"""
-        for subtitle in self.subtitles:
+        for subtitle in reversed(sorted(self.subtitles, key=lambda x: (
+                x["attributes"]["from_trusted"],
+                x["attributes"]["votes"],
+                x["attributes"]["ratings"],
+                x["attributes"]["download_count"]))):
             attributes = subtitle["attributes"]
             language = convert_language(attributes["language"], True)
             log(__name__, attributes)
