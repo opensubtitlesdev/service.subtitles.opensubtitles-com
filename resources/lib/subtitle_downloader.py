@@ -132,25 +132,26 @@ class SubtitleDownloader:
 
     def list_subtitles(self):
         """TODO rewrite using new data. do not forget Series/Episodes"""
-        for subtitle in reversed(sorted(self.subtitles, key=lambda x: (
-                x["attributes"]["from_trusted"],
-                x["attributes"]["votes"],
-                x["attributes"]["ratings"],
-                x["attributes"]["download_count"]))):
-            attributes = subtitle["attributes"]
-            language = convert_language(attributes["language"], True)
-            log(__name__, attributes)
-            clean_name = clean_feature_release_name(attributes["feature_details"]["title"], attributes["release"],
-                                                    attributes["feature_details"]["movie_name"])
-            list_item = xbmcgui.ListItem(label=language,
-                                         label2=clean_name)
-            list_item.setArt({
-                "icon": str(int(round(float(attributes["ratings"]) / 2))),
-                "thumb": get_flag(attributes["language"])})
-            list_item.setProperty("sync", "true" if ("moviehash_match" in attributes and attributes["moviehash_match"]) else "false")
-            list_item.setProperty("hearing_imp", "true" if attributes["hearing_impaired"] else "false")
-            """TODO take care of multiple cds id&id or something"""
-            url = f"plugin://{__scriptid__}/?action=download&id={attributes['files'][0]['file_id']}"
+        if self.subtitles:
+            for subtitle in reversed(sorted(self.subtitles, key=lambda x: (
+                    bool(x["attributes"].get("from_trusted", False)),
+                    x["attributes"].get("votes", 0) or 0,
+                    x["attributes"].get("ratings", 0) or 0,
+                    x["attributes"].get("download_count", 0) or 0))):
+                attributes = subtitle["attributes"]
+                language = convert_language(attributes["language"], True)
+                log(__name__, attributes)
+                clean_name = clean_feature_release_name(attributes["feature_details"]["title"], attributes["release"],
+                                                        attributes["feature_details"]["movie_name"])
+                list_item = xbmcgui.ListItem(label=language,
+                                             label2=clean_name)
+                list_item.setArt({
+                    "icon": str(int(round(float(attributes["ratings"]) / 2))),
+                    "thumb": get_flag(attributes["language"])})
+                list_item.setProperty("sync", "true" if ("moviehash_match" in attributes and attributes["moviehash_match"]) else "false")
+                list_item.setProperty("hearing_imp", "true" if attributes["hearing_impaired"] else "false")
+                """TODO take care of multiple cds id&id or something"""
+                url = f"plugin://{__scriptid__}/?action=download&id={attributes['files'][0]['file_id']}"
 
-            xbmcplugin.addDirectoryItem(handle=self.handle, url=url, listitem=list_item, isFolder=False)
+                xbmcplugin.addDirectoryItem(handle=self.handle, url=url, listitem=list_item, isFolder=False)
         xbmcplugin.endOfDirectory(self.handle)
