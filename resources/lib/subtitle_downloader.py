@@ -12,7 +12,7 @@ import xbmcvfs
 from resources.lib.data_collector import get_language_data, get_media_data, get_file_path, convert_language, \
     clean_feature_release_name, get_flag
 from resources.lib.exceptions import AuthenticationError, ConfigurationError, DownloadLimitExceeded, ProviderError, \
-    ServiceUnavailable, TooManyRequests
+    ServiceUnavailable, TooManyRequests, BadUsernameError
 from resources.lib.file_operations import get_file_data
 from resources.lib.os.provider import OpenSubtitlesProvider
 from resources.lib.utilities import get_params, log, error
@@ -99,6 +99,9 @@ class SubtitleDownloader:
             log(__name__, "XYXYXX download '%s' " % self.file)
         except AuthenticationError as e:
             error(__name__, 32003, e)
+            valid = 0
+        except BadUsernameError as e:
+            error(__name__, 32214, e)
             valid = 0
         except DownloadLimitExceeded as e:
             log(__name__, f"XYXYXX limit excedded, username: {self.username}  {e}")
