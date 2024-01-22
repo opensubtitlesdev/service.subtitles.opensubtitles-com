@@ -7,6 +7,8 @@ REST API implementation based on tomburke25 [python-opensubtitles-rest-api](http
 v1.0.4 (2024-01-15)
 - Sanitize language query
 - Improved sorting
+- Improved error messages 
+- Improved usage of moviehash 
 
 v1.0.3 (2023-12-18)
 - Fixed issue with file path
