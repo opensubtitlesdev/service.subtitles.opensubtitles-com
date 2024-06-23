@@ -26,7 +26,7 @@ def get_media_data():
   #          "imdb_id": xbmc.getInfoLabel("VideoPlayer.IMDBNumber")}
 
     item = {"query": None,
-            "year": xbmc.getInfoLabel("VideoPlayer.Year"),
+            # "year": xbmc.getInfoLabel("VideoPlayer.Year"),
             "season_number": str(xbmc.getInfoLabel("VideoPlayer.Season")),
             "episode_number": str(xbmc.getInfoLabel("VideoPlayer.Episode")),
             "tv_show_title": normalize_string(xbmc.getInfoLabel("VideoPlayer.TVshowtitle")),
@@ -34,9 +34,6 @@ def get_media_data():
             }
 
 
-    # if Kodi returned 0 for the year, don't send a year to opensubtitles
-    if item['year'] == '0':
-        del item['year']
 
     if item["tv_show_title"]:
         item["query"] = item["tv_show_title"]
