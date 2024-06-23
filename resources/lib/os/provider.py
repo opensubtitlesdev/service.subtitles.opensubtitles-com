@@ -5,6 +5,9 @@ from requests import Session, ConnectionError, HTTPError, ReadTimeout, Timeout, 
 
 from resources.lib.os.model.request.subtitles import OpenSubtitlesSubtitlesRequest
 from resources.lib.os.model.request.download import OpenSubtitlesDownloadRequest
+from resources.lib.os.model.request.guessit import OpenSubtitlesGuessItRequest
+
+import xbmcaddon
 
 '''local kodi module imports. replace by any other exception, cache, log provider'''
 from resources.lib.exceptions import AuthenticationError, ConfigurationError, DownloadLimitExceeded, ProviderError, \
@@ -16,14 +19,16 @@ API_URL = "https://api.opensubtitles.com/api/v1/"
 API_LOGIN = "login"
 API_SUBTITLES = "subtitles"
 API_DOWNLOAD = "download"
+API_GUESSIT = "utilities/guessit"
 
 
 CONTENT_TYPE = "application/json"
 REQUEST_TIMEOUT = 30
 
 class_lookup = {"OpenSubtitlesSubtitlesRequest": OpenSubtitlesSubtitlesRequest,
-                "OpenSubtitlesDownloadRequest": OpenSubtitlesDownloadRequest}
-
+                "OpenSubtitlesDownloadRequest": OpenSubtitlesDownloadRequest,
+                "OpenSubtitlesGuessItRequest": OpenSubtitlesGuessItRequest,
+                }
 
 # TODO implement search for features, logout, infos, guessit. Response(-s) objects
 
@@ -72,8 +77,10 @@ class OpenSubtitlesProvider:
         if not self.username or not self.password:
             logging(f"Username: {self.username}, Password: {self.password}")
 
+        addon_version = xbmcaddon.Addon().getAddonInfo('version')
 
-        self.request_headers = {"Api-Key": self.api_key, "User-Agent": "Opensubtitles.com Kodi plugin v1.0.4" ,"Content-Type": CONTENT_TYPE, "Accept": CONTENT_TYPE}
+        self.request_headers = {"Api-Key": self.api_key, "User-Agent": "Opensubtitles.com Kodi plugin " + addon_version
+            ,"Content-Type": CONTENT_TYPE, "Accept": CONTENT_TYPE}
 
         self.session = Session()
         self.session.headers = self.request_headers
@@ -122,10 +129,12 @@ class OpenSubtitlesProvider:
 
     def search_subtitles(self, query: Union[dict, OpenSubtitlesSubtitlesRequest]):
 
+        log(__name__, "search_subtitles()")
+
         params = query_to_params(query, 'OpenSubtitlesSubtitlesRequest')
 
         if not len(params):
-            raise ValueError("Invalid subtitle search data provided. Empty Object built")
+            raise ValueError("Invalid guessit search data provided. Empty Object built")
 
         try:
             # build query request
@@ -156,6 +165,54 @@ class OpenSubtitlesProvider:
 
         if len(result["data"]):
             return result["data"]
+
+        return None
+
+    def search_guessit(self, query: Union[dict, OpenSubtitlesSubtitlesRequest]):
+
+        log(__name__, "search_guessit()")
+
+        params = query_to_params(query, 'OpenSubtitlesGuessItRequest')
+
+        if not len(params):
+            raise ValueError("Invalid subtitle search data provided. Empty Object built")
+
+        try:
+            # build query request
+            subtitles_url = API_URL + API_GUESSIT
+            r = self.session.get(subtitles_url, params=params, timeout=30)
+            logging(r.url)
+            logging(r.request.headers)
+            logging(r.text)
+            r.raise_for_status()
+        except (ConnectionError, Timeout, ReadTimeout) as e:
+            raise ServiceUnavailable(f"Unknown Error, empty response: {e.status_code}: {e!r}")
+        except HTTPError as e:
+            status_code = e.response.status_code
+            if status_code == 429:
+                raise TooManyRequests()
+            elif status_code == 503:
+                raise ProviderError(e)
+            else:
+                raise ProviderError(f"Bad status code: {status_code}")
+
+        try:
+            result = r.json()
+            # [{'title': 'Slow Horses', 'season': 3, 'episode': 3, 'episode_title': 'Negotiating With Tigers', 'type': 'episode'}]
+            reformatted_result = {
+                'query': result[ 'title' ] + ' ' + result[ 'episode_title' ],
+                'season_number': result[ 'season' ],
+                'episode_number': result[ 'episode' ],
+                'type_': result[ 'type' ],
+                'hearing_impaired': query[ 'hearing_impaired' ],
+                'foreign_parts_only': query[ 'foreign_parts_only' ],
+                'machine_translated': query[ 'machine_translated' ],
+                'ai_translated': query[ 'ai_translated' ],
+                'languages': query[ 'languages' ],
+            }
+            return reformatted_result
+        except ValueError:
+            raise ProviderError("Invalid JSON returned by provider")
 
         return None
 

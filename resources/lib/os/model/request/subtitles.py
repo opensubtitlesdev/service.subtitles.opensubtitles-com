@@ -52,7 +52,7 @@ class OpenSubtitlesSubtitlesRequest(OpenSubtitlesRequest):
         super().__init__()
 
         # ordered request params with defaults
-        self.DEFAULT_LIST = dict(ai_translated="exclude", episode_number=None, foreign_parts_only="include",
+        self.DEFAULT_LIST = dict(ai_translated="include", episode_number=None, foreign_parts_only="include",
                                  hearing_impaired="include", id=None, imdb_id=None, languages="",
                                  machine_translated="exclude", moviehash="", moviehash_match="include", order_by="",
                                  order_direction="desc", page=None, parent_feature_id=None, parent_imdb_id=None,

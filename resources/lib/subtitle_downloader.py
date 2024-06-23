@@ -3,6 +3,8 @@ import os
 import shutil
 import sys
 import uuid
+import re
+import unicodedata
 
 import xbmcaddon
 import xbmcgui
@@ -73,12 +75,18 @@ class SubtitleDownloader:
             media_data = get_media_data()
             if "basename" in file_data:
                 media_data["query"] = file_data["basename"]
+            elif "query" in media_data:
+                media_data["query"] = re.sub(r'\W+', ' ', unicodedata.normalize('NFKD', media_data["query"])).lower()
             log(__name__, "media_data '%s' " % media_data)
 
         self.query = {**media_data, **file_data, **language_data}
 
+        return self.search_subtitles(self.query)
+
+
+    def search_subtitles(self, query, is_guessit=False):
         try:
-            self.subtitles = self.open_subtitles.search_subtitles(self.query)
+            self.subtitles = self.open_subtitles.search_subtitles(query)
         # TODO handle errors individually. Get clear error messages to the user
         except (TooManyRequests, ServiceUnavailable, ProviderError, ValueError) as e:
             error(__name__, 32001, e)
@@ -87,8 +95,31 @@ class SubtitleDownloader:
             log(__name__, len(self.subtitles))
             self.list_subtitles()
         else:
-            # TODO retry using guessit???
-            log(__name__, "No subtitle found")
+            if is_guessit:
+                log(__name__, "No subtitle found")
+            else:
+                guessit_data = self.search_guessit(self.query)
+                if guessit_data:
+                    log(__name__, "have guessit data")
+                    return self.search_subtitles(guessit_data,True)
+                else:
+                    log(__name__, "No guessit data")
+
+
+    def search_guessit(self, query):
+        try:
+            guessit_data = self.open_subtitles.search_guessit(query)
+        except (TooManyRequests, ServiceUnavailable, ProviderError, ValueError) as e:
+            error(__name__, 32001, e)
+
+        if guessit_data:
+            log(__name__, "guessit data: [%s]" % guessit_data)
+            return guessit_data
+        else:
+            log(__name__, "No subtitle found via guessit")
+
+        return None
+
 
     def download(self):
         valid = 1

@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 
 import xbmc
 import xbmcaddon
+import re
 
 from resources.lib.utilities import log, normalize_string
 
@@ -29,10 +30,13 @@ def get_media_data():
             "season_number": str(xbmc.getInfoLabel("VideoPlayer.Season")),
             "episode_number": str(xbmc.getInfoLabel("VideoPlayer.Episode")),
             "tv_show_title": normalize_string(xbmc.getInfoLabel("VideoPlayer.TVshowtitle")),
-            "original_title": normalize_string(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))}
+            "original_title": normalize_string(xbmc.getInfoLabel("VideoPlayer.OriginalTitle")),
+            }
 
 
-
+    # if Kodi returned 0 for the year, don't send a year to opensubtitles
+    if item['year'] == '0':
+        del item['year']
 
     if item["tv_show_title"]:
         item["query"] = item["tv_show_title"]
@@ -43,15 +47,25 @@ def get_media_data():
     elif item["original_title"]:
         item["query"] = item["original_title"]
 
-
     if not item["query"]:
         log(__name__, "query still blank, fallback to title")
         item["query"] = normalize_string(xbmc.getInfoLabel("VideoPlayer.Title"))  # no original title, get just Title
+
+    item["filename"] = item["query"]            # for guessit
 
     # TODO get episodes like that and test them properly out
     if item["episode_number"].lower().find("s") > -1:  # Check if season is "Special"
         item["season_number"] = "0"  #
         item["episode_number"] = item["episode_number"][-1:]
+
+    ####### don't need this, going to use their guessit utility instead...
+    # season_episode_re = re.compile('(.+)\W+s([0-9]+)e([0-9]+)', re.IGNORECASE)
+    # season_episode_match = season_episode_re.search(item["query"])
+    # if season_episode_match:
+    #     item["query"] = season_episode_match.group(1)
+    #     item["season_number"] = season_episode_match.group(2)
+    #     item["episode_number"] = season_episode_match.group(3)
+    #     item["type_"] = "episode"
 
     return item
 
@@ -108,6 +122,7 @@ def get_language_data(params):
         "hearing_impaired": __addon__.getSetting("hearing_impaired"),
         "foreign_parts_only": __addon__.getSetting("foreign_parts_only"),
         "machine_translated": __addon__.getSetting("machine_translated"),
+        "ai_translated": __addon__.getSetting("ai_translated"),
         "languages": search_languages_str}
 
      # for language in search_languages:
