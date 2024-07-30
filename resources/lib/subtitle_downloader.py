@@ -2,12 +2,12 @@
 import os
 import shutil
 import sys
-import uuid
 
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
 import xbmcvfs
+import xbmc
 
 from resources.lib.data_collector import get_language_data, get_media_data, get_file_path, convert_language, \
     clean_feature_release_name, get_flag
@@ -44,6 +44,7 @@ class SubtitleDownloader:
         self.query = {}
         self.subtitles = {}
         self.file = {}
+        self.videopath = False
 
         try:
             self.open_subtitles = OpenSubtitlesProvider(self.api_key, self.username, self.password)
@@ -62,6 +63,12 @@ class SubtitleDownloader:
     def search(self, query=""):
         file_data = get_file_data(get_file_path())
         language_data = get_language_data(self.params)
+        
+        if not file_data["temp"]:  # pass filepath to download
+            self.videopath = os.path.splitext(file_data["file_original_path"])[0]
+            
+        else:   # use Kodi temp directory
+            self.videopath = False
 
         log(__name__, "file_data '%s' " % file_data)
         log(__name__, "language_data '%s' " % language_data)
@@ -114,10 +121,37 @@ class SubtitleDownloader:
             error(__name__, 32001, e)
             valid = 0
 
-        subtitle_path = os.path.join(__temp__, f"{str(uuid.uuid4())}.{self.sub_format}")
-       
+        # Kodi lang-code difference vs OS.com API langcodes return
+        if self.params["language"].lower() == 'pt-pt': self.params["language"] = 'pt'
+        elif self.params["language"].lower() == 'pt-pb': self.params["language"] = 'pb'
+        
+        if self.params["videopath"] == 'False':  # use temporary OSS subtitle location      
+            try:    # kodi > k19
+                dir_path = xbmcvfs.translatePath('special://temp/oss')       
+            except: # kodi < k19
+                dir_path = xbmc.translatePath('special://temp/oss')
+                
+            if xbmcvfs.exists(dir_path):    # lets clean files from last usage
+                dirs, files = xbmcvfs.listdir(dir_path)
+                for file in files:
+                    xbmcvfs.delete(os.path.join(dir_path, file))
+                    
+                if not xbmcvfs.exists(dir_path):  # lets create custom OSS sub directory if not exists
+                    xbmcvfs.mkdir(dir_path)
+                
+            subtitle_path = os.path.join(dir_path, "{0}.{1}.{2}".format('TempSubtitle', self.params["language"], self.sub_format))
+ 
+        else:   # save subtitles aside video file
+            try:    # kodi > k19
+                videopath = xbmcvfs.validatePath(self.params["videopath"])       
+            except: # kodi < k19
+                videopath = xbmc.validatePath(self.params["videopath"])
+
+            subtitle_path = "{0}.{1}.{2}".format(videopath, self.params["language"], self.sub_format)
+            
         if (valid==1):
-            tmp_file = open(subtitle_path, "w" + "b")
+            #tmp_file = open(subtitle_path, "w" + "b")
+            tmp_file = xbmcvfs.File(subtitle_path, 'w') # needed for Kodi network share writes
             tmp_file.write(self.file["content"])
             tmp_file.close()
         
@@ -154,7 +188,7 @@ class SubtitleDownloader:
                 list_item.setProperty("sync", "true" if ("moviehash_match" in attributes and attributes["moviehash_match"]) else "false")
                 list_item.setProperty("hearing_imp", "true" if attributes["hearing_impaired"] else "false")
                 """TODO take care of multiple cds id&id or something"""
-                url = f"plugin://{__scriptid__}/?action=download&id={attributes['files'][0]['file_id']}"
+                url = f"plugin://{__scriptid__}/?action=download&id={attributes['files'][0]['file_id']}&language={attributes['language']}&videopath={self.videopath}"
 
                 xbmcplugin.addDirectoryItem(handle=self.handle, url=url, listitem=list_item, isFolder=False)
         xbmcplugin.endOfDirectory(self.handle)
