@@ -134,6 +134,7 @@ def convert_language(language, reverse=False):
         "English": "en",
         "Portuguese (Brazil)": "pt-br",
         "Portuguese": "pt-pt",
+        "Chinese": "zh-cn",
         "Chinese (simplified)": "zh-cn",
         "Chinese (traditional)": "zh-tw"}
 
