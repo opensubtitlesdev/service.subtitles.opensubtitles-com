@@ -12,7 +12,7 @@ from resources.lib.exceptions import AuthenticationError, ConfigurationError, Do
 from resources.lib.cache import Cache
 from resources.lib.utilities import log
 
-API_URL = "https://api.opensubtitles.com/api/v1/"
+API_URL = "https://staging.opensubtitles.com/api/v1/"
 API_LOGIN = "login"
 API_SUBTITLES = "subtitles"
 API_DOWNLOAD = "download"
