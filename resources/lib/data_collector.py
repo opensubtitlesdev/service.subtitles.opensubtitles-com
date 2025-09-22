@@ -91,332 +91,164 @@ def _extract_basic_tv_info(filename):
     
     return None, None, None
 
-def _test_simple_library_queries():
-    """Test simple library queries like kutils does"""
-    try:
-        log(__name__, f"🧪 TESTING SIMPLE LIBRARY QUERIES...")
-        
-        # Test 1: Simple movies query (like kutils)
-        query_params = {
-            "properties": ["title", "year", "originaltitle"],
-            "limits": {"end": 5}
-        }
-        result = _jsonrpc("VideoLibrary.GetMovies", query_params)
-        if result and "movies" in result:
-            log(__name__, f"🧪 Simple movies query found {len(result['movies'])} movies")
-            for movie in result["movies"]:
-                log(__name__, f"🧪   - {movie.get('title')} ({movie.get('year')})")
-        else:
-            log(__name__, f"🧪 Simple movies query failed: {result}")
-        
-        # Test 2: Simple TV shows query (like kutils)
-        query_params = {
-            "properties": ["title", "year"],
-            "limits": {"end": 5}
-        }
-        result = _jsonrpc("VideoLibrary.GetTVShows", query_params)
-        if result and "tvshows" in result:
-            log(__name__, f"🧪 Simple TV shows query found {len(result['tvshows'])} shows")
-            for show in result["tvshows"]:
-                log(__name__, f"🧪   - {show.get('title')} ({show.get('year')})")
-        else:
-            log(__name__, f"🧪 Simple TV shows query failed: {result}")
-            
-        # Test 3: Check library statistics
-        result = _jsonrpc("VideoLibrary.GetMovies", {"properties": ["title"], "limits": {"start": 0, "end": 1}})
-        if result and "limits" in result:
-            total_movies = result["limits"].get("total", 0)
-            log(__name__, f"🧪 Library statistics: {total_movies} total movies")
-        
-        result = _jsonrpc("VideoLibrary.GetTVShows", {"properties": ["title"], "limits": {"start": 0, "end": 1}})
-        if result and "limits" in result:
-            total_shows = result["limits"].get("total", 0)
-            log(__name__, f"🧪 Library statistics: {total_shows} total TV shows")
-            
-    except Exception as e:
-        log(__name__, f"❌ Simple library query test failed: {e}")
 
-def _list_all_movies_in_library(limit=10):
-    """List all movies in Kodi library for debugging purposes"""
-    try:
-        log(__name__, f"🔍 Listing ALL movies in Kodi library (first {limit})...")
-        
-        query_params = {
-            "properties": ["title", "year", "originaltitle", "file"],
-            "sort": {"order": "ascending", "method": "title"},
-            "limits": {"start": 0, "end": limit}
-        }
-        
-        result = _jsonrpc("VideoLibrary.GetMovies", query_params)
-        
-        if result and "movies" in result:
-            movies = result["movies"]
-            total = result.get("limits", {}).get("total", len(movies))
-            log(__name__, f"🎬 LIBRARY DUMP - Found {len(movies)} of {total} total movies:")
-            
-            for i, movie in enumerate(movies):
-                title = movie.get('title', 'No Title')
-                year = movie.get('year', 'No Year')
-                orig_title = movie.get('originaltitle', '')
-                file_path = movie.get('file', 'No File')
-                file_name = file_path.split('/')[-1] if file_path else 'No File'
-                
-                log(__name__, f"🎬   {i+1:2d}. '{title}' ({year}) [Orig: '{orig_title}'] File: {file_name[:40]}...")
-                
-                # Check if this could be Alice in Wonderland
-                if 'alice' in title.lower() or 'alice' in orig_title.lower():
-                    log(__name__, f"🎯 POTENTIAL MATCH for Alice: '{title}' / '{orig_title}' ({year})")
-        else:
-            log(__name__, f"🎬 No movies found in library or library query failed")
-            
-    except Exception as e:
-        log(__name__, f"❌ Failed to list library movies: {e}")
-        import traceback
-        log(__name__, f"❌ Traceback: {traceback.format_exc()}")
 
 def _query_kodi_library_for_movie(movie_title, year=None, dbid=None):
-    """Try to find the movie in Kodi library and get its IDs using enhanced filtering"""
+    """Query Kodi library for movie IDs"""
     if not movie_title and not dbid:
-        log(__name__, f"🎬 Movie library search skipped: no title or dbid provided")
         return None, None, None
-    
-    log(__name__, f"🔍 Searching Kodi library for movie: '{movie_title}' ({year}) [dbid: {dbid}]")
-    
-    # DEBUG: List some movies in library to see what's actually there
-    if movie_title == "Alice in Wonderland":
-        _list_all_movies_in_library(limit=20)
-        _test_simple_library_queries()
-    
+
     try:
         # If we have a specific database ID, query that movie directly
         if dbid and str(dbid).isdigit():
-            log(__name__, f"🔍 Using direct database ID query: {dbid}")
             query_params = {
                 "movieid": int(dbid),
-                "properties": ["imdbnumber", "uniqueid", "title", "year", "originaltitle", "file"]
+                "properties": ["imdbnumber", "uniqueid", "title", "year"]
             }
-            result = _jsonrpc("VideoLibrary.GetMovieDetails", query_params)
+            result = _jsonrpc("VideoLibrary.GetMovieDetails", query_params, use_cache=False)
             if result and "moviedetails" in result:
                 movie = result["moviedetails"]
-                log(__name__, f"🎬 Found movie by DB ID: {movie.get('title', 'Unknown')} ({movie.get('year', 'N/A')})")
                 return _extract_movie_ids(movie)
-        
-        # Simplified movie search without filters (get all movies, then filter manually)
-        query_params = {
-            "properties": ["imdbnumber", "uniqueid", "title", "year", "originaltitle", "file"],
-            "limits": {"end": 500}  # Get first 500 movies
-        }
-        log(__name__, f"🔍 Getting all movies to manually search for: '{movie_title}' ({year})")
-        
-        log(__name__, f"🔍 Enhanced library query params: {query_params}")
-        result = _jsonrpc("VideoLibrary.GetMovies", query_params)
-        
-        # DEBUG: Show exactly what the library search returned
-        if result:
-            log(__name__, f"🔍 RAW Library search result: {result}")
-            if "movies" in result:
-                if result["movies"]:
-                    log(__name__, f"🎬 Found {len(result['movies'])} movies:")
-                    for i, movie in enumerate(result["movies"][:5]):  # Show first 5 movies
-                        log(__name__, f"🎬   {i+1}. '{movie.get('title', 'No Title')}' ({movie.get('year', 'No Year')}) [File: {movie.get('file', 'No File')[:50]}...]")
-                else:
-                    log(__name__, f"🎬 Library returned empty movies array")
-            else:
-                log(__name__, f"🎬 Library result has no 'movies' key")
-        else:
-            log(__name__, f"🎬 Library search returned None/empty result")
-        
-        if result and "movies" in result and result["movies"]:
-            all_movies = result["movies"]
-            log(__name__, f"🎬 Retrieved {len(all_movies)} movies from library, filtering for '{movie_title}'")
-            
-            # Manual filtering for matching movies
-            matching_movies = []
-            for movie in all_movies:
-                movie_title_lib = movie.get('title', '').lower()
-                movie_orig_title = movie.get('originaltitle', '').lower()
-                search_title_lower = movie_title.lower()
-                
-                # Title matching
-                title_match = (search_title_lower in movie_title_lib or 
-                              movie_title_lib in search_title_lower or
-                              (movie_orig_title and search_title_lower in movie_orig_title))
-                
-                if title_match:
-                    # Year matching if provided
-                    if year and str(year).isdigit():
-                        movie_year = movie.get('year')
-                        year_int = int(year)
-                        if movie_year and abs(movie_year - year_int) <= 1:  # ±1 year tolerance
-                            matching_movies.append(movie)
-                            log(__name__, f"🎬 MATCH: '{movie.get('title')}' / '{movie.get('originaltitle')}' ({movie.get('year')}) - Title & Year match")
-                        else:
-                            log(__name__, f"🔍 Title match but year mismatch: '{movie.get('title')}' ({movie.get('year')}) vs search year {year}")
-                    else:
+
+        # Search by title if no dbid or dbid query failed
+        if movie_title:
+            query_params = {
+                "properties": ["imdbnumber", "uniqueid", "title", "year"],
+                "limits": {"end": 100}
+            }
+            result = _jsonrpc("VideoLibrary.GetMovies", query_params, use_cache=False)
+
+            if result and "movies" in result and result["movies"]:
+                matching_movies = []
+                for movie in result["movies"]:
+                    movie_title_lib = movie.get('title', '').lower()
+                    search_title_lower = movie_title.lower()
+
+                    if (search_title_lower in movie_title_lib or
+                        movie_title_lib in search_title_lower):
                         matching_movies.append(movie)
-                        log(__name__, f"🎬 MATCH: '{movie.get('title')}' / '{movie.get('originaltitle')}' ({movie.get('year')}) - Title match")
-            
-            if matching_movies:
-                log(__name__, f"🎬 Found {len(matching_movies)} matching movies after filtering")
-                # Smart movie selection with scoring
-                best_movie = _select_best_movie_match(matching_movies, movie_title, year)
-                if best_movie:
-                    log(__name__, f"🎬 Selected best match: {best_movie.get('title', 'Unknown')} ({best_movie.get('year', 'N/A')})")
-                    return _extract_movie_ids(best_movie)
-            else:
-                log(__name__, f"🎬 No matching movies found after filtering {len(all_movies)} movies")
-        else:
-            log(__name__, f"🎬 No movies found in library for '{movie_title}'")
-            
+
+                if matching_movies:
+                    best_movie = _select_best_movie_match(matching_movies, movie_title, year)
+                    if best_movie:
+                        return _extract_movie_ids(best_movie)
+
     except Exception as e:
-        log(__name__, f"❌ Failed to query Kodi library for movie '{movie_title}': {e}")
-        import traceback
-        log(__name__, f"❌ Traceback: {traceback.format_exc()}")
-    
+        log(__name__, f"Failed to query library for movie: {e}")
+
     return None, None, None
 
 def _select_best_movie_match(movies, search_title, search_year=None):
-    """Select the best matching movie from library results using scoring algorithm"""
+    """Select the best matching movie from library results"""
     if not movies:
         return None
-    
+
     if len(movies) == 1:
         return movies[0]
-    
+
     best_score = 0
     best_movie = None
-    
+
     for movie in movies:
         score = 0
         movie_title = movie.get('title', '')
-        movie_orig_title = movie.get('originaltitle', '')
         movie_year = movie.get('year')
-        
-        # Title matching score (0-100)
+
+        # Title matching score
         if search_title:
             title_similarity = SequenceMatcher(None, search_title.lower(), movie_title.lower()).ratio() * 100
-            orig_title_similarity = SequenceMatcher(None, search_title.lower(), movie_orig_title.lower()).ratio() * 100
-            score += max(title_similarity, orig_title_similarity)
-            
+            score += title_similarity
+
             # Exact title match bonus
-            if search_title.lower() == movie_title.lower() or search_title.lower() == movie_orig_title.lower():
+            if search_title.lower() == movie_title.lower():
                 score += 50
-        
-        # Year matching bonus (0-25)
+
+        # Year matching bonus
         if search_year and movie_year:
             year_diff = abs(int(search_year) - movie_year)
             if year_diff == 0:
                 score += 25
             elif year_diff <= 1:
                 score += 15
-            elif year_diff <= 2:
-                score += 5
-        
-        log(__name__, f"🎬 Movie '{movie_title}' ({movie_year}) scored: {score:.1f}")
-        
+
         if score > best_score:
             best_score = score
             best_movie = movie
-    
-    log(__name__, f"🎬 Best movie selected with score: {best_score:.1f}")
+
     return best_movie
+
 
 def _extract_movie_ids(movie):
     """Extract IMDb and TMDb IDs from movie data, return (imdb_id, tmdb_id, file_path)"""
     movie_imdb = None
     movie_tmdb = None
     file_path = movie.get('file', '')
-    
+
     # IMDb ID extraction
     imdb_raw = movie.get("imdbnumber", "")
-    log(__name__, f"🔍 Raw IMDb from library: '{imdb_raw}'")
     imdb_digits = _strip_imdb_tt(imdb_raw)
     if imdb_digits and 6 <= len(imdb_digits) <= 8:
         movie_imdb = int(imdb_digits)
-        log(__name__, f"🎬 Library Movie IMDb: {movie_imdb}")
-    
+        log(__name__, f"Found Movie IMDb: {movie_imdb}")
+
     # TMDb ID from uniqueid
     uniqueids = movie.get("uniqueid", {})
-    log(__name__, f"🔍 Raw uniqueids from library: {uniqueids}")
     if isinstance(uniqueids, dict):
         tmdb_raw = uniqueids.get("tmdb", "")
         if tmdb_raw and str(tmdb_raw).isdigit():
             movie_tmdb = int(tmdb_raw)
-            log(__name__, f"🎬 Library Movie TMDb: {movie_tmdb}")
-    
+            log(__name__, f"Found Movie TMDb: {movie_tmdb}")
+
     return movie_imdb, movie_tmdb, file_path
 
 def _query_kodi_library_for_show(show_title, year=None):
-    """Try to find the show in Kodi library and get its IDs with enhanced matching"""
+    """Query Kodi library for TV show IDs"""
     if not show_title:
         return None, None, None
-    
-    log(__name__, f"🔍 Searching Kodi library for show: '{show_title}' ({year})")
-    
+
     try:
-        # Simplified TV show search without filters (get all shows, then filter manually)
         query_params = {
-            "properties": ["imdbnumber", "uniqueid", "title", "year", "originaltitle", "episodeguide"],
-            "limits": {"end": 200}  # Get first 200 shows
+            "properties": ["imdbnumber", "uniqueid", "title", "episodeguide"],
+            "limits": {"end": 50}
         }
-        log(__name__, f"🔍 Getting all TV shows to manually search for: '{show_title}'")
-        
-        log(__name__, f"🔍 TV show query params: {query_params}")
-        result = _jsonrpc("VideoLibrary.GetTVShows", query_params)
-        log(__name__, f"🔍 TV show query result: {result}")
+        result = _jsonrpc("VideoLibrary.GetTVShows", query_params, use_cache=False)
+
         if result and "tvshows" in result and result["tvshows"]:
-            all_tvshows = result["tvshows"]
-            log(__name__, f"📺 Retrieved {len(all_tvshows)} TV shows from library, filtering for '{show_title}'")
-            
-            # Manual filtering for matching shows
             matching_shows = []
-            for show in all_tvshows:
+            for show in result["tvshows"]:
                 show_title_lib = show.get('title', '').lower()
-                show_orig_title = show.get('originaltitle', '').lower()
                 search_title_lower = show_title.lower()
-                
-                if (search_title_lower in show_title_lib or 
-                    show_title_lib in search_title_lower or
-                    (show_orig_title and search_title_lower in show_orig_title)):
+                if (search_title_lower in show_title_lib or
+                    show_title_lib in search_title_lower):
                     matching_shows.append(show)
-                    log(__name__, f"📺 MATCH: '{show.get('title')}' / '{show.get('originaltitle')}' ({show.get('year')})")
-            
+
             if matching_shows:
-                log(__name__, f"📺 Found {len(matching_shows)} matching shows after filtering")
-                # Select best matching show
                 best_show = _select_best_show_match(matching_shows, show_title, year)
                 if best_show:
-                    log(__name__, f"📺 Selected show: {best_show.get('title', 'Unknown')} ({best_show.get('year', 'N/A')})")
                     return _extract_show_ids(best_show)
-            else:
-                log(__name__, f"📺 No matching shows found after filtering {len(all_tvshows)} shows")
-        else:
-            log(__name__, f"📺 No TV shows retrieved from library (empty result)")
-            
+
     except Exception as e:
-        log(__name__, f"❌ Failed to query Kodi library for show '{show_title}': {e}")
-        import traceback
-        log(__name__, f"❌ Traceback: {traceback.format_exc()}")
-    
+        log(__name__, f"Failed to query library for show: {e}")
+
     return None, None, None
 
 def _select_best_show_match(tvshows, search_title, search_year=None):
     """Select the best matching TV show from library results"""
     if not tvshows:
         return None
-    
+
     if len(tvshows) == 1:
         return tvshows[0]
-    
+
     best_score = 0
     best_show = None
-    
+
     for show in tvshows:
         score = 0
         show_title = show.get('title', '')
         show_orig_title = show.get('originaltitle', '')
         show_year = show.get('year')
-        
+
         # Title matching (0-100)
         if search_title:
             title_similarity = SequenceMatcher(None, search_title.lower(), show_title.lower()).ratio() * 100
@@ -425,11 +257,11 @@ def _select_best_show_match(tvshows, search_title, search_year=None):
                 score += max(title_similarity, orig_title_similarity)
             else:
                 score += title_similarity
-            
+
             # Exact match bonus
             if search_title.lower() == show_title.lower() or search_title.lower() == show_orig_title.lower():
                 score += 50
-        
+
         # Year bonus (0-25)
         if search_year and show_year:
             year_diff = abs(int(search_year) - show_year)
@@ -437,14 +269,11 @@ def _select_best_show_match(tvshows, search_title, search_year=None):
                 score += 25
             elif year_diff <= 2:
                 score += 10
-        
-        log(__name__, f"📺 Show '{show_title}' ({show_year}) scored: {score:.1f}")
-        
+
         if score > best_score:
             best_score = score
             best_show = show
-    
-    log(__name__, f"📺 Best show selected with score: {best_score:.1f}")
+
     return best_show
 
 def _extract_show_ids(tvshow):
@@ -452,24 +281,22 @@ def _extract_show_ids(tvshow):
     parent_imdb = None
     parent_tmdb = None
     tvshow_id = tvshow.get('tvshowid')
-    
+
     # IMDb ID
     imdb_raw = tvshow.get("imdbnumber", "")
-    log(__name__, f"🔍 Raw show IMDb: '{imdb_raw}'")
     imdb_digits = _strip_imdb_tt(imdb_raw)
     if imdb_digits and 6 <= len(imdb_digits) <= 8:
         parent_imdb = int(imdb_digits)
-        log(__name__, f"📺 Library Parent IMDb: {parent_imdb}")
-    
+        log(__name__, f"Found Parent IMDb: {parent_imdb}")
+
     # TMDb ID from uniqueid
     uniqueids = tvshow.get("uniqueid", {})
-    log(__name__, f"🔍 Raw show uniqueids: {uniqueids}")
     if isinstance(uniqueids, dict):
         tmdb_raw = uniqueids.get("tmdb", "")
         if tmdb_raw and str(tmdb_raw).isdigit():
             parent_tmdb = int(tmdb_raw)
-            log(__name__, f"📺 Library Parent TMDb: {parent_tmdb}")
-    
+            log(__name__, f"Found Parent TMDb: {parent_tmdb}")
+
     # Alternative TMDb extraction from episodeguide
     if not parent_tmdb:
         episodeguide = tvshow.get("episodeguide", "")
@@ -479,10 +306,10 @@ def _extract_show_ids(tvshow):
                 tmdb_match = re.search(r'tmdb["\']?[:\s]*([0-9]+)', episodeguide, re.IGNORECASE)
                 if tmdb_match:
                     parent_tmdb = int(tmdb_match.group(1))
-                    log(__name__, f"📺 Extracted TMDb from episodeguide: {parent_tmdb}")
-            except Exception as e:
-                log(__name__, f"Failed to extract TMDb from episodeguide: {e}")
-    
+                    log(__name__, f"Found Parent TMDb from episodeguide: {parent_tmdb}")
+            except Exception:
+                pass
+
     return parent_imdb, parent_tmdb, tvshow_id
 
 def _call_guessit_api(filename):
@@ -526,48 +353,40 @@ def _call_guessit_api(filename):
         return None
 
 def _jsonrpc(method, params=None, use_cache=True):
-    """Enhanced JSON-RPC call with caching, better error handling and logging"""
+    """JSON-RPC call with caching and error handling"""
     # Check cache first for library queries
     if use_cache and method.startswith('VideoLibrary.'):
         cached_result = _get_from_cache(method, params)
         if cached_result is not None:
             return cached_result
-    
+
     try:
         payload = {"jsonrpc": "2.0", "id": 1, "method": method}
         if params:
             payload["params"] = params
-            
-        log(__name__, f"🔄 JSON-RPC call: {method} with params: {params}")
+
         resp = xbmc.executeJSONRPC(json.dumps(payload))
         data = json.loads(resp)
-        
+
         # Check for JSON-RPC errors
         if "error" in data:
             error_info = data["error"]
-            log(__name__, f"❌ JSON-RPC error in {method}: {error_info.get('message', 'Unknown error')} (Code: {error_info.get('code', 'N/A')})")
+            log(__name__, f"JSON-RPC error in {method}: {error_info.get('message', 'Unknown error')}")
             return None
-        
+
         result = data.get("result")
-        if result:
-            log(__name__, f"✅ JSON-RPC {method} returned {len(str(result))} characters of data")
-        else:
-            log(__name__, f"⚠️ JSON-RPC {method} returned empty result")
-        
+
         # Cache library query results
         if use_cache and method.startswith('VideoLibrary.') and result:
             _store_in_cache(method, params, result)
-            
+
         return result
-        
+
     except json.JSONDecodeError as e:
-        log(__name__, f"❌ JSON decode error in {method}: {e}")
-        log(__name__, f"Raw response: {resp[:200] if 'resp' in locals() else 'No response'}...")
+        log(__name__, f"JSON decode error in {method}: {e}")
         return None
     except Exception as e:
-        log(__name__, f"❌ JSON-RPC error in {method}: {e}")
-        import traceback
-        log(__name__, f"❌ Traceback: {traceback.format_exc()}")
+        log(__name__, f"JSON-RPC error in {method}: {e}")
         return None
 
 
@@ -721,48 +540,35 @@ def get_media_data():
                     # parent IMDb
                     if not item["parent_imdb_id"]:
                         imdb_raw = str(tvshow_details.get("imdbnumber") or "")
-                        log(__name__, f"🔍 DEBUG: Raw imdbnumber from JSON-RPC: '{imdb_raw}'")
                         imdb_digits = _strip_imdb_tt(imdb_raw)
-                        log(__name__, f"🔍 DEBUG: Processed IMDb digits: '{imdb_digits}'")
                         if imdb_digits and 6 <= len(imdb_digits) <= 8:
                             item["parent_imdb_id"] = int(imdb_digits)
                             log(__name__, f"Parent IMDb via JSON-RPC: {item['parent_imdb_id']}")
-                        else:
-                            log(__name__, f"🔍 DEBUG: Invalid IMDb format, skipping: '{imdb_digits}'")
 
                     # parent TMDb (first try uniqueid, then episodeguide fallback)
                     if not item["parent_tmdb_id"]:
                         # Method 1: Try uniqueid field first (more reliable)
                         uniqueids = tvshow_details.get("uniqueid", {})
-                        log(__name__, f"🔍 DEBUG: Raw uniqueids from JSON-RPC: {uniqueids}")
                         if isinstance(uniqueids, dict):
                             tmdb_raw = uniqueids.get("tmdb", "")
-                            log(__name__, f"🔍 DEBUG: TMDb from uniqueids: '{tmdb_raw}'")
                             if tmdb_raw and str(tmdb_raw).isdigit():
                                 item["parent_tmdb_id"] = int(tmdb_raw)
                                 log(__name__, f"Parent TMDb via JSON-RPC (uniqueid): {item['parent_tmdb_id']}")
-                        
+
                         # Method 2: Fallback to episodeguide if uniqueid didn't work
                         if not item["parent_tmdb_id"]:
                             episodeguideXML = tvshow_details.get("episodeguide")
-                            log(__name__, f"🔍 DEBUG: Raw episodeguide XML: '{episodeguideXML}'")
                             if episodeguideXML:
-                                episodeguide = ET.fromstring(episodeguideXML)
-                                if episodeguide.text:
-                                    log(__name__, f"🔍 DEBUG: Episodeguide text: '{episodeguide.text}'")
-                                    guide_json = json.loads(episodeguide.text)
-                                    log(__name__, f"🔍 DEBUG: Parsed guide JSON: {guide_json}")
-                                    tmdb = guide_json.get("tmdb")
-                                    log(__name__, f"🔍 DEBUG: TMDb from guide JSON: '{tmdb}'")
-                                    if tmdb and str(tmdb).isdigit():
-                                        item["parent_tmdb_id"] = int(tmdb)
-                                        log(__name__, f"Parent TMDb via JSON-RPC (episodeguide): {item['parent_tmdb_id']}")
-                                    else:
-                                        log(__name__, f"🔍 DEBUG: Invalid TMDb format, skipping: '{tmdb}'")
-                                else:
-                                    log(__name__, f"🔍 DEBUG: Episodeguide has no text content")
-                            else:
-                                log(__name__, f"🔍 DEBUG: No episodeguide found in JSON-RPC response")
+                                try:
+                                    episodeguide = ET.fromstring(episodeguideXML)
+                                    if episodeguide.text:
+                                        guide_json = json.loads(episodeguide.text)
+                                        tmdb = guide_json.get("tmdb")
+                                        if tmdb and str(tmdb).isdigit():
+                                            item["parent_tmdb_id"] = int(tmdb)
+                                            log(__name__, f"Parent TMDb via JSON-RPC (episodeguide): {item['parent_tmdb_id']}")
+                                except (ET.ParseError, json.JSONDecodeError, ValueError):
+                                    pass  # Silent fail for malformed XML/JSON
             except (json.JSONDecodeError, ET.ParseError, ValueError, KeyError) as e:
                 log(__name__, f"Failed to extract TV show IDs via JSON-RPC: {e}")
 
@@ -891,14 +697,10 @@ def get_media_data():
         else:
             log(__name__, f"🎯 API Strategy: title search only '{item['query']}' (movie, no IDs available)")
 
-    log(__name__, f"🔍 Before final query check: query='{item.get('query')}', original_title='{item.get('original_title')}', tv_show_title='{item.get('tv_show_title')}'")
     if not item.get("query"):
-        log(__name__, "⚠️ Query still blank, attempting fallback to title")
         fallback_title = normalize_string(xbmc.getInfoLabel("VideoPlayer.Title"))
-        log(__name__, f"🔍 VideoPlayer.Title fallback: '{fallback_title}'")
         if fallback_title:
             item["query"] = fallback_title
-            log(__name__, f"✅ Set query to VideoPlayer.Title: '{item['query']}'")
         else:
             # Last resort: use filename
             try:
@@ -907,10 +709,8 @@ def get_media_data():
                     import os
                     filename = os.path.basename(playing_file)
                     item["query"] = filename
-                    log(__name__, f"📁 Using filename as query: '{item['query']}'")
             except:
                 item["query"] = "Unknown"
-                log(__name__, "❌ Set query to 'Unknown' - no other options")
 
     # Specials handling
     if isinstance(item.get("episode_number"), str) and item["episode_number"] and item["episode_number"].lower().find("s") > -1:
@@ -921,9 +721,7 @@ def get_media_data():
     if "tvshowid" in item:
         del item["tvshowid"]
 
-    # FINAL DEBUG: Show exactly what we're returning
-    log(__name__, f"🔍 FINAL get_media_data() returning: query='{item.get('query')}', tv_show_title='{item.get('tv_show_title')}', original_title='{item.get('original_title')}'")
-    log(__name__, f"🔍 COMPLETE FINAL RESULT: {item}")
+    log(__name__, f"Media data result: {item.get('query')} - IMDb:{item.get('imdb_id') or item.get('parent_imdb_id')} TMDb:{item.get('tmdb_id') or item.get('parent_tmdb_id')}")
 
     return item
 
