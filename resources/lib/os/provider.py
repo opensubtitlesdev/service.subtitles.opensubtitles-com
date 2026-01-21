@@ -1,5 +1,7 @@
 
 from typing import Union
+import json
+import hashlib
 
 from requests import Session, ConnectionError, HTTPError, ReadTimeout, Timeout, RequestException
 
@@ -154,6 +156,21 @@ class OpenSubtitlesProvider:
         if not len(params):
             raise ValueError("Invalid subtitle search data provided. Empty Object built")
 
+        # --- [START] Cache Logic (Added) ---
+        # Generate a unique cache key based on the params
+        try:
+            params_str = json.dumps(params, sort_keys=True)
+            cache_key = hashlib.md5(params_str.encode('utf-8')).hexdigest()
+            
+            # Check for valid cached data
+            cached_result = self.cache.get(cache_key)
+            if cached_result:
+                logging(f"CACHE HIT: Returning cached subtitles for key {cache_key}")
+                return cached_result
+        except Exception as e:
+            logging(f"Cache check failed: {e}")
+        # --- [END] Cache Logic ---
+
         # Check if we have a user token for authentication
         current_token = self.user_token
         logging(f"Current user token: {current_token[:20] if current_token else None}...")
@@ -214,6 +231,15 @@ class OpenSubtitlesProvider:
             logging(f"Query returned {len(result['data'])} subtitles")
 
         if len(result["data"]):
+            # --- [START] Cache Save (Added) ---
+            try:
+                # Save to cache for 24 hours (86400 seconds)
+                logging(f"CACHE SAVE: Storing search results for key {cache_key}")
+                self.cache.set(cache_key, result["data"], expires=86400)
+            except Exception as e:
+                logging(f"Cache save failed: {e}")
+            # --- [END] Cache Save ---
+
             return result["data"]
 
         return None
