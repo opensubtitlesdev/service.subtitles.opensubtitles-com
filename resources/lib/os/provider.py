@@ -157,7 +157,7 @@ class OpenSubtitlesProvider:
             raise ValueError("Invalid subtitle search data provided. Empty Object built")
 
         # --- [START] Cache Config (Added) ---
-        # Get duration from settings (default 0 hours)
+        # Get duration from settings (default 5 minutes)
         try:
             # We access __addon__ directly since we imported it from utilities
             cache_setting = __addon__.getSetting("search_cache_duration")
@@ -166,7 +166,7 @@ class OpenSubtitlesProvider:
             if not cache_setting:
                 cache_ttl = 0 # Default if undefined
             else:
-                cache_ttl = int(float(cache_setting)) * 60 * 60 # Convert hours to seconds
+                cache_ttl = int(float(cache_setting)) * 60 # Convert minutes to seconds
         except Exception as e:
             logging(f"Error reading cache setting: {e}")
             cache_ttl = 0

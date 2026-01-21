@@ -73,5 +73,5 @@ msgid "AI Translated"
 msgstr ""
 
 msgctxt "#32216"
-msgid "Search cache duration [hours]"
+msgid "Search cache duration [minutes]"
 msgstr ""
