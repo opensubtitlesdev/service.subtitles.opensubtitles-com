@@ -32,6 +32,18 @@ msgctxt "#32006"
 msgid "You have reached OpenSubtitles.com download limit for unauthenticated users. Create an account on opensubtitles.com and enter your credentials in addon settings, or try again tomorrow."
 msgstr ""
 
+msgctxt "#32007"
+msgid "Too many requests to OpenSubtitles.com. Please wait a moment and try again."
+msgstr ""
+
+msgctxt "#32008"
+msgid "OpenSubtitles.com is currently unavailable. Please try again later."
+msgstr ""
+
+msgctxt "#32009"
+msgid "Unexpected error while searching for subtitles."
+msgstr ""
+
 msgctxt "#32101"
 msgid "Login Details"
 msgstr ""
